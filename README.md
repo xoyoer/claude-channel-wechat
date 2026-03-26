@@ -6,6 +6,24 @@ Chat with Claude Code directly from WeChat — powered by Tencent's official iLi
 
 ---
 
+## 遇到问题？让 Claude 帮你装 / Let Claude install it for you
+
+安装遇到问题，或者不确定怎么操作，把这句话发给 Claude Code：
+
+> 帮我安装并配置这个项目：https://github.com/xoyoer/claude-channel-wechat
+
+Claude 会读取说明文档，一步步带你完成安装，遇到错误自动排查修复。
+
+---
+
+If you run into issues or aren't sure what to do, send this to Claude Code:
+
+> Help me install and set up this project: https://github.com/xoyoer/claude-channel-wechat
+
+Claude will read the docs, walk you through each step, and automatically troubleshoot any errors.
+
+---
+
 ## 来源 / Origin
 
 本插件融合了两个官方来源：
@@ -135,6 +153,8 @@ claude --channels plugin:telegram@claude-plugins-official --dangerously-load-dev
 | 发消息无反应 | 1. 是否用了 `--dangerously-load-development-channels`？（最常见） |
 | | 2. `ps aux \| grep bun.*wechat` 确认进程在跑 |
 | | 3. 检查 `~/.claude/channels/wechat/access.json` 里 `allowFrom` 是否有你的 ID |
+| 收到配对码但无法完成配对 | 先单独启动微信（不带 Telegram），配对成功后再加 Telegram |
+| 微信发消息但收不到配对码 | MCP server 未启动：`ps aux \| grep bun.*wechat` 确认进程，或检查 `~/.mcp.json` 路径 |
 | errcode -14 | session timeout，自动恢复。如持续失败删 `sync.json` 重试 |
 | 多进程抢消息 | `pkill -f "bun.*wechat"` 清理后重启 |
 | `no MCP server configured` | `~/.mcp.json` 放错位置，确认在家目录（`~/.mcp.json`） |
@@ -340,6 +360,8 @@ Done. WeChat messages now reach Claude Code directly.
 | No response to messages | 1. Are you using `--dangerously-load-development-channels`? (most common) |
 | | 2. `ps aux \| grep bun.*wechat` — confirm the process is running |
 | | 3. Check `~/.claude/channels/wechat/access.json` → `allowFrom` contains your WeChat ID |
+| Got pairing code but pairing never completes | Start WeChat alone first (without Telegram), pair successfully, then add Telegram |
+| Sent message to bot but no pairing code received | MCP server not running: `ps aux \| grep bun.*wechat`, or check `~/.mcp.json` path |
 | errcode -14 | Session timeout, auto-recovers. If persistent, delete `sync.json` and retry |
 | Multiple processes fighting | `pkill -f "bun.*wechat"` then restart |
 | `no MCP server configured` | Wrong `.mcp.json` location — must be `~/.mcp.json` (home directory) |
