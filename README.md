@@ -30,19 +30,9 @@ Neither original plugin is included or modified. This project is an independent 
 
 - [Claude Code CLI](https://claude.ai/code) — 已安装并登录
 - [Bun](https://bun.sh) — JavaScript 运行时（`curl -fsSL https://bun.sh/install | bash`）
-- 微信已开启 ClawBot 插件（见下方第一步）
+- 微信账号（版本过低会在扫码时自动提示升级）
 
-### 第一步：在微信 App 开启 ClawBot
-
-> 首次使用必须先完成此步骤。
-
-1. 将微信更新到最新版本
-2. 打开微信 → 右下角 **我** → **设置** → **插件**
-3. 找到 **微信ClawBot**，启用
-
-完成后接着执行下方安装步骤。扫码成功后，微信消息首页会出现名为 **微信ClawBot** 的对话窗口。
-
-### 第二步：安装
+### 第一步：安装
 
 **自动安装（推荐）**
 
@@ -87,7 +77,7 @@ bun setup.ts
 
 在浏览器打开输出的链接，用微信扫码确认。凭证保存到 `~/.claude/channels/wechat/account.json`。
 
-### 第三步：启动
+### 第二步：启动
 
 ```sh
 claude --dangerously-load-development-channels server:wechat
@@ -102,7 +92,7 @@ claude --dangerously-load-development-channels server:wechat
 claude --channels plugin:telegram@claude-plugins-official --dangerously-load-development-channels server:wechat
 ```
 
-### 第四步：配对
+### 第三步：配对
 
 微信给 bot 发任意消息 → 收到 6 位配对码 → 在 Claude Code 终端输入：
 
@@ -245,19 +235,9 @@ aes_key: Buffer.from(hexKey).toString('base64')
 
 - [Claude Code CLI](https://claude.ai/code) — installed and authenticated
 - [Bun](https://bun.sh) — JavaScript runtime (`curl -fsSL https://bun.sh/install | bash`)
-- WeChat with ClawBot plugin enabled (see Step 1 below)
+- WeChat account (if the version is too old, WeChat will prompt you to upgrade during QR scan)
 
-### Step 1: Enable ClawBot in the WeChat App
-
-> Required before running the installer.
-
-1. Update WeChat to the latest version
-2. Open WeChat → tap **Me** (bottom right) → **Settings** → **Plugins**
-3. Find **微信ClawBot** in the list and enable it
-
-Then proceed to installation. After the QR scan, a conversation named **微信ClawBot** will appear in your WeChat message list.
-
-### Step 2: Install
+### Step 1: Install
 
 **Automated (recommended)**
 
@@ -302,7 +282,7 @@ bun setup.ts
 
 Open the printed URL in a browser and scan the QR code with WeChat. Credentials are saved to `~/.claude/channels/wechat/account.json`.
 
-### Step 3: Start
+### Step 2: Start
 
 ```sh
 claude --dangerously-load-development-channels server:wechat
@@ -317,7 +297,7 @@ Run alongside Telegram (requires [Telegram plugin setup](https://github.com/anth
 claude --channels plugin:telegram@claude-plugins-official --dangerously-load-development-channels server:wechat
 ```
 
-### Step 4: Pair
+### Step 3: Pair
 
 Send any message to the bot in WeChat → receive a 6-digit pairing code → in the Claude Code terminal:
 
