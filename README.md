@@ -51,6 +51,12 @@ claude --dangerously-load-development-channels plugin:wechat@claude-plugins-offi
 **必须用 `--dangerously-load-development-channels`，不能用 `--channels`。**
 原因：wechat 不在 Claude Code 内置白名单上，`--channels` 会静默丢弃通知。
 
+同时开 Telegram（需先完成 [Telegram 插件配置](https://github.com/anthropics/claude-plugins-official/blob/main/external_plugins/telegram/README.md)）：
+```sh
+claude --channels plugin:telegram@claude-plugins-official \
+       --dangerously-load-development-channels plugin:wechat@claude-plugins-official
+```
+
 ### 首次设置
 
 **1. QR 码登录**
@@ -289,6 +295,12 @@ claude --dangerously-load-development-channels plugin:wechat@claude-plugins-offi
 
 **Must use `--dangerously-load-development-channels`, not `--channels`.**
 Reason: `wechat` is not on Claude Code's built-in channel allowlist. Using `--channels` silently drops all notifications from unlisted channels.
+
+Run alongside Telegram (requires [Telegram plugin setup](https://github.com/anthropics/claude-plugins-official/blob/main/external_plugins/telegram/README.md) first):
+```sh
+claude --channels plugin:telegram@claude-plugins-official \
+       --dangerously-load-development-channels plugin:wechat@claude-plugins-official
+```
 
 ### First-time Setup
 
