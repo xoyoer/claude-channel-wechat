@@ -1,0 +1,11 @@
+node_modules/
+.DS_Store
+progress.md
+
+# State files (contain credentials/access tokens — never commit)
+account.json
+access.json
+sync.json
+debug-mode.json
+inbox/
+approved/
