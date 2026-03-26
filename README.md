@@ -6,7 +6,33 @@ Chat with Claude Code directly from WeChat — powered by Tencent's official iLi
 
 ---
 
+## Origin
+
+This plugin was built by fusing two official sources:
+
+- **Claude Code Telegram plugin** (`plugin:telegram@claude-plugins-official`) — provided the MCP server architecture, channel protocol, access control, and permission relay design
+- **WeChat ClawBot plugin** (`openclaw-weixin`) — provided the iLink Bot API authentication flow, CDN media pipeline (AES-128-ECB), and voice transcode approach
+
+Neither original plugin is included or modified. This project is an independent implementation combining their patterns into a single standalone WeChat channel.
+
+## 来源
+
+本插件融合了两个官方来源：
+
+- **Claude Code Telegram 插件**（`plugin:telegram@claude-plugins-official`）— 提供了 MCP server 架构、channel 协议、访问控制、权限中继的设计思路
+- **微信 ClawBot 插件**（`openclaw-weixin`）— 提供了 iLink Bot API 认证流程、CDN 媒体管线（AES-128-ECB）、语音转码方案
+
+两个原插件均未被引入或修改。本项目是独立实现，将两者的设计模式融合为一个独立的微信 channel 插件。
+
+---
+
 ## English
+
+### Prerequisites
+
+- [Claude Code CLI](https://claude.ai/code) — installed and authenticated
+- [Bun](https://bun.sh) — JavaScript runtime (`curl -fsSL https://bun.sh/install | bash`)
+- A WeChat account with access to an iLink Bot (via [Tencent ClawBot](https://work.weixin.qq.com/nl/act/p/d609fc6cd1b14a22))
 
 ### Quick Start
 
@@ -243,6 +269,12 @@ Key files: cdn/upload.ts, cdn/cdn-upload.ts, messaging/send.ts, messaging/send-m
 ---
 
 ## 中文
+
+### 前置条件
+
+- [Claude Code CLI](https://claude.ai/code) — 已安装并登录
+- [Bun](https://bun.sh) — JavaScript 运行时（`curl -fsSL https://bun.sh/install | bash`）
+- 微信账号 + iLink Bot 访问权限（通过[腾讯 ClawBot](https://work.weixin.qq.com/nl/act/p/d609fc6cd1b14a22) 申请）
 
 ### 快速启动
 
