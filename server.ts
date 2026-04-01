@@ -253,6 +253,39 @@ try {
 const BASE_URL = account.baseUrl ?? DEFAULT_BASE_URL
 const TOKEN = account.token!
 
+// Auto-trust: iLink Bot is single-user (QR login = owner), so auto-add the
+// logged-in userId to allowFrom on startup. This skips the pairing dance that
+// Telegram needs (where any stranger can DM the bot).
+if (account.userId) {
+  try {
+    const autoAccess = (() => {
+      try {
+        const raw = readFileSync(ACCESS_FILE, 'utf8')
+        const parsed = JSON.parse(raw) as Partial<Access>
+        return {
+          dmPolicy: parsed.dmPolicy ?? 'pairing',
+          allowFrom: parsed.allowFrom ?? [],
+          pending: parsed.pending ?? {},
+          chunkMode: parsed.chunkMode,
+          textChunkLimit: parsed.textChunkLimit,
+        }
+      } catch {
+        return { dmPolicy: 'pairing' as const, allowFrom: [] as string[], pending: {} as Access['pending'] }
+      }
+    })()
+    if (!autoAccess.allowFrom.includes(account.userId)) {
+      autoAccess.allowFrom.push(account.userId)
+      mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 })
+      const tmp = ACCESS_FILE + '.tmp'
+      writeFileSync(tmp, JSON.stringify(autoAccess, null, 2) + '\n', { mode: 0o600 })
+      renameSync(tmp, ACCESS_FILE)
+      process.stderr.write(`wechat channel: auto-trusted ${account.userId} (QR login owner)\n`)
+    }
+  } catch (err) {
+    process.stderr.write(`wechat channel: auto-trust failed: ${err}\n`)
+  }
+}
+
 // =============================================================================
 // Access control
 // =============================================================================

@@ -110,21 +110,11 @@ claude --dangerously-load-development-channels server:wechat
 claude --channels plugin:telegram@claude-plugins-official --dangerously-load-development-channels server:wechat
 ```
 
-### 第三步：配对
+### 第三步：发消息
 
-微信给 bot 发任意消息 → 收到 6 位配对码 → 在 Claude Code 终端输入：
+微信给 bot 发任意消息，直接就能用。
 
-```
-/wechat:access pair <6位码>
-```
-
-完成。后续消息直达 Claude Code。
-
-**锁定（可选）**：配对后切换 allowlist 模式，不再给陌生人回配对码：
-
-```
-/wechat:access policy allowlist
-```
+> 不需要配对码。iLink Bot 是扫码登录的（只有你自己的微信号能用），启动时会自动将登录账号加入白名单。
 
 ### 状态文件
 
@@ -153,8 +143,7 @@ claude --channels plugin:telegram@claude-plugins-official --dangerously-load-dev
 | 发消息无反应 | 1. 是否用了 `--dangerously-load-development-channels`？（最常见） |
 | | 2. `ps aux \| grep bun.*wechat` 确认进程在跑 |
 | | 3. 检查 `~/.claude/channels/wechat/access.json` 里 `allowFrom` 是否有你的 ID |
-| 收到配对码但无法完成配对 | 先单独启动微信（不带 Telegram），配对成功后再加 Telegram |
-| 微信发消息但收不到配对码 | MCP server 未启动：`ps aux \| grep bun.*wechat` 确认进程，或检查 `~/.mcp.json` 路径 |
+| 微信发消息无配对码也无回复 | MCP server 未启动：`ps aux \| grep bun.*wechat` 确认进程，或检查 `~/.mcp.json` 路径 |
 | errcode -14 | session timeout，自动恢复。如持续失败删 `sync.json` 重试 |
 | 多进程抢消息 | `pkill -f "bun.*wechat"` 清理后重启 |
 | `no MCP server configured` | `~/.mcp.json` 放错位置，确认在家目录（`~/.mcp.json`） |
@@ -166,13 +155,13 @@ claude --channels plugin:telegram@claude-plugins-official --dangerously-load-dev
 
 | 功能 | 说明 |
 |------|------|
-| 文字收发 | Markdown→纯文本，4000字分片 |
+| 文字收发 | 流式 Markdown→纯文本过滤，智能分片（段落优先） |
 | 图片收发 | 接收自动下载解密，发送AES加密上传CDN |
 | 视频收发 | 同图片流程，MIME自动检测 |
 | 文件收发 | PDF/DOC/ZIP等，保留原始文件名 |
 | 语音接收 | SILK→WAV自动转码（silk-wasm可选依赖） |
 | 打字指示器 | 收到消息后自动发typing |
-| 访问控制 | 配对码/白名单/禁用三模式 |
+| 访问控制 | 扫码自动信任/白名单/禁用模式 |
 | 权限交互 | Claude Code 权限请求通过微信确认 |
 | Debug模式 | 微信发 `/toggle-debug` 开关，显示计时 |
 | Echo测试 | 微信发 `/echo 文字` 回显 |
@@ -240,11 +229,18 @@ aes_key: Buffer.from(hexKey).toString('base64')
 
 ### 维护参考
 
-未来 ClawBot 发布更新时，媒体相关逻辑可参照其源码同步：
+本项目融合两个上游，定期检查更新并移植改进：
 
+**上游 1：openclaw-weixin（iLink API 层）**
+```sh
+npm view @tencent-weixin/openclaw-weixin dist-tags time --json
+# 拉取源码对比：cd /tmp && npm pack @tencent-weixin/openclaw-weixin@latest
 ```
-~/.openclaw/extensions/openclaw-weixin/src/
-关键文件：cdn/upload.ts, cdn/cdn-upload.ts, messaging/send.ts, messaging/send-media.ts, api/api.ts
+
+**上游 2：Claude Code Telegram 插件（MCP channel 架构）**
+```
+~/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/telegram/
+# GitHub: https://github.com/anthropics/claude-plugins-official/tree/main/external_plugins/telegram
 ```
 
 ---
@@ -317,21 +313,11 @@ Run alongside Telegram (requires [Telegram plugin setup](https://github.com/anth
 claude --channels plugin:telegram@claude-plugins-official --dangerously-load-development-channels server:wechat
 ```
 
-### Step 3: Pair
+### Step 3: Send a message
 
-Send any message to the bot in WeChat → receive a 6-digit pairing code → in the Claude Code terminal:
+Send any message to the bot in WeChat — it works immediately.
 
-```
-/wechat:access pair <6-digit-code>
-```
-
-Done. WeChat messages now reach Claude Code directly.
-
-**Lock down (optional):** Switch to allowlist mode after pairing:
-
-```
-/wechat:access policy allowlist
-```
+> No pairing code needed. The iLink Bot uses QR login (only your own WeChat account), and the server auto-trusts the logged-in user on startup.
 
 ### State Files
 
@@ -360,8 +346,7 @@ Done. WeChat messages now reach Claude Code directly.
 | No response to messages | 1. Are you using `--dangerously-load-development-channels`? (most common) |
 | | 2. `ps aux \| grep bun.*wechat` — confirm the process is running |
 | | 3. Check `~/.claude/channels/wechat/access.json` → `allowFrom` contains your WeChat ID |
-| Got pairing code but pairing never completes | Start WeChat alone first (without Telegram), pair successfully, then add Telegram |
-| Sent message to bot but no pairing code received | MCP server not running: `ps aux \| grep bun.*wechat`, or check `~/.mcp.json` path |
+| Sent message but no response | MCP server not running: `ps aux \| grep bun.*wechat`, or check `~/.mcp.json` path |
 | errcode -14 | Session timeout, auto-recovers. If persistent, delete `sync.json` and retry |
 | Multiple processes fighting | `pkill -f "bun.*wechat"` then restart |
 | `no MCP server configured` | Wrong `.mcp.json` location — must be `~/.mcp.json` (home directory) |
@@ -373,13 +358,13 @@ Done. WeChat messages now reach Claude Code directly.
 
 | Feature | Description |
 |---------|-------------|
-| Text send/receive | Markdown → plain text, chunked at 4000 chars |
+| Text send/receive | Streaming Markdown → plain text filter, smart chunking (paragraph-aware) |
 | Image send/receive | Receive: auto-download + AES decrypt. Send: AES encrypt + CDN upload |
 | Video send/receive | Same pipeline as images, MIME auto-detected |
 | File send/receive | PDF/DOC/ZIP etc., original filename preserved |
 | Voice receive | SILK → WAV transcode (silk-wasm optional dep) |
 | Typing indicator | Sent automatically on message receipt |
-| Access control | Pairing code / allowlist / disabled modes |
+| Access control | Auto-trust on QR login / allowlist / disabled modes |
 | Permission relay | Claude Code permission requests confirmed via WeChat |
 | Debug mode | Send `/toggle-debug` in WeChat, shows processing timings |
 | Echo test | Send `/echo text` — bot echoes back |
@@ -447,9 +432,16 @@ Must include the 5-char code: `y abcde`. Just `y` fails the regex and goes to Cl
 
 ### Maintenance Reference
 
-When ClawBot releases updates, sync media-related logic by referencing:
+This project fuses two upstreams — check for updates periodically:
 
+**Upstream 1: openclaw-weixin (iLink API layer)**
+```sh
+npm view @tencent-weixin/openclaw-weixin dist-tags time --json
+# Pull source to diff: cd /tmp && npm pack @tencent-weixin/openclaw-weixin@latest
 ```
-~/.openclaw/extensions/openclaw-weixin/src/
-Key files: cdn/upload.ts, cdn/cdn-upload.ts, messaging/send.ts, messaging/send-media.ts, api/api.ts
+
+**Upstream 2: Claude Code Telegram plugin (MCP channel architecture)**
+```
+~/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/telegram/
+# GitHub: https://github.com/anthropics/claude-plugins-official/tree/main/external_plugins/telegram
 ```
