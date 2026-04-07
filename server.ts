@@ -58,7 +58,7 @@ const SESSION_EXPIRED_ERRCODE = -14
 const SESSION_PAUSE_MS = 60 * 60 * 1000 // 1h
 
 // Message types
-const MessageItemType = { NONE: 0, TEXT: 1, IMAGE: 2, VOICE: 3, FILE: 4, VIDEO: 5 } as const
+const MessageItemType = { NONE: 0, TEXT: 1, IMAGE: 2, VOICE: 3, FILE: 4, VIDEO: 5, BOT_TEXT: 8 } as const
 const MessageType = { NONE: 0, USER: 1, BOT: 2 } as const
 const MessageState = { NEW: 0, GENERATING: 1, FINISH: 2 } as const
 const TypingStatus = { TYPING: 1, CANCEL: 2 } as const
@@ -138,6 +138,10 @@ interface VideoItem {
 interface RefMessage {
   message_item?: MessageItem
   title?: string
+  content?: string
+  desc?: string
+  text?: string
+  [key: string]: unknown  // catch any other fields from the API
 }
 
 interface MessageItem {
@@ -1009,15 +1013,59 @@ function extractTextBody(itemList?: MessageItem[]): string {
       const text = String(item.text_item.text)
       const ref = item.ref_msg
       if (!ref) return text
-      // Quoted media: skip ref content, return plain text
-      if (ref.message_item && isMediaItem(ref.message_item)) return text
+      // Debug: always log ref structure for quoted messages
+      process.stderr.write(`[wechat ref_msg] keys=${Object.keys(ref).join(',')} data=${JSON.stringify(ref).slice(0, 500)}\n`)
+      // Dump full ref to file for debugging
+      try { require('fs').appendFileSync('/tmp/wechat-ref-debug.log', `${new Date().toISOString()}\n${JSON.stringify(ref, null, 2)}\n---\n`) } catch {}
+      // Quoted media: label the media type so Claude knows what was quoted
+      if (ref.message_item && isMediaItem(ref.message_item)) {
+        const mediaType = ref.message_item.type === MessageItemType.IMAGE ? '图片'
+          : ref.message_item.type === MessageItemType.VIDEO ? '视频'
+          : ref.message_item.type === MessageItemType.FILE ? '文件'
+          : ref.message_item.type === MessageItemType.VOICE ? '语音'
+          : '媒体'
+        const refLabel = ref.title ? `${ref.title} | ${mediaType}` : mediaType
+        return `[引用: ${refLabel}]\n${text}`
+      }
+      // Bot messages (type 8) often lack text content in the API response
+      if (ref.message_item?.type === MessageItemType.BOT_TEXT && !ref.message_item.text_item?.text) {
+        const label = ref.title || '我之前的回复'
+        return `[引用: ${label}]\n${text}`
+      }
       const parts: string[] = []
       if (ref.title) parts.push(ref.title)
       if (ref.message_item) {
         const refBody = extractTextBody([ref.message_item])
         if (refBody) parts.push(refBody)
       }
-      if (!parts.length) return text
+      // Fallback: try other known text fields from the API
+      if (!parts.length && ref.content) parts.push(ref.content)
+      if (!parts.length && ref.desc) parts.push(ref.desc)
+      if (!parts.length && ref.text) parts.push(ref.text)
+      // Last resort: deep scan all values in ref for any text content
+      if (!parts.length) {
+        const deepStrings = (obj: unknown, depth = 0): string[] => {
+          if (depth > 5) return []
+          if (typeof obj === 'string' && obj.trim().length > 0) return [obj.trim()]
+          if (Array.isArray(obj)) return obj.flatMap(v => deepStrings(v, depth + 1))
+          if (obj && typeof obj === 'object') {
+            const results: string[] = []
+            for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
+              if (key === 'message_item' || key === 'type') continue
+              results.push(...deepStrings(val, depth + 1))
+            }
+            return results
+          }
+          return []
+        }
+        const found = deepStrings(ref)
+        if (found.length) parts.push(found[0])
+      }
+      if (!parts.length) {
+        // Still nothing — log full ref for debugging
+        console.error('[extractTextBody] ref exists but empty content:', JSON.stringify(ref, null, 2))
+        return `[引用: (内容无法提取)]\n${text}`
+      }
       return `[引用: ${parts.join(' | ')}]\n${text}`
     }
     // Voice-to-text
@@ -1637,6 +1685,9 @@ async function handleInbound(msg: WeixinMessage): Promise<void> {
     return
   }
 
+  // Debug: dump full raw message to file for quote investigation
+  try { require('fs').appendFileSync('/tmp/wechat-raw-msg.log', `${new Date().toISOString()}\n${JSON.stringify(msg, null, 2)}\n===\n`) } catch {}
+
   const textBody = extractTextBody(msg.item_list)
 
   // Slash command intercept: /toggle-debug
@@ -1704,10 +1755,20 @@ async function handleInbound(msg: WeixinMessage): Promise<void> {
   const imageItem = msg.item_list?.find(
     i => i.type === MessageItemType.IMAGE && i.image_item?.media?.encrypt_query_param
   )
-  if (imageItem?.image_item) {
-    const imagePath = await downloadImage(imageItem.image_item)
+  // Fallback: check quoted/replied message for image
+  const refImageItem = !imageItem
+    ? msg.item_list?.find(
+        i => i.type === MessageItemType.TEXT &&
+             i.ref_msg?.message_item?.type === MessageItemType.IMAGE &&
+             i.ref_msg.message_item.image_item?.media?.encrypt_query_param
+      )?.ref_msg?.message_item
+    : undefined
+  const effectiveImageItem = imageItem ?? refImageItem
+  if (effectiveImageItem?.image_item) {
+    const imagePath = await downloadImage(effectiveImageItem.image_item)
     if (imagePath) {
       meta.image_path = imagePath
+      if (refImageItem) meta.image_source = 'quoted'
     }
   }
 
