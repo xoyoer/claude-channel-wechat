@@ -66,7 +66,7 @@ const TypingStatus = { TYPING: 1, CANCEL: 2 } as const
 // Text chunk limit (WeChat message body limit)
 const MAX_TEXT_CHUNK = 4000
 
-// Permission-reply spec (same as Telegram plugin)
+// Permission-reply spec
 const PERMISSION_REPLY_RE = /^\s*(y|yes|n|no)\s+([a-km-z]{5})\s*$/i
 
 // =============================================================================
@@ -258,8 +258,7 @@ const BASE_URL = account.baseUrl ?? DEFAULT_BASE_URL
 const TOKEN = account.token!
 
 // Auto-trust: iLink Bot is single-user (QR login = owner), so auto-add the
-// logged-in userId to allowFrom on startup. This skips the pairing dance that
-// Telegram needs (where any stranger can DM the bot).
+// logged-in userId to allowFrom on startup.
 if (account.userId) {
   try {
     const autoAccess = (() => {

@@ -26,19 +26,9 @@ Claude will read the docs, walk you through each step, and automatically trouble
 
 ## 来源 / Origin
 
-本插件融合了两个官方来源：
+本插件参考了 Claude Code channel 协议架构和微信 ClawBot 插件（`openclaw-weixin`）的 iLink Bot API 认证流程、CDN 媒体管线（AES-128-ECB）、语音转码方案。本项目是独立实现。
 
-- **Claude Code Telegram 插件**（`plugin:telegram@claude-plugins-official`）— 提供了 MCP server 架构、channel 协议、访问控制、权限中继的设计思路
-- **微信 ClawBot 插件**（`openclaw-weixin`）— 提供了 iLink Bot API 认证流程、CDN 媒体管线（AES-128-ECB）、语音转码方案
-
-两个原插件均未被引入或修改。本项目是独立实现，将两者的设计模式融合为一个独立的微信 channel 插件。
-
-This plugin was built by fusing two official sources:
-
-- **Claude Code Telegram plugin** (`plugin:telegram@claude-plugins-official`) — provided the MCP server architecture, channel protocol, access control, and permission relay design
-- **WeChat ClawBot plugin** (`openclaw-weixin`) — provided the iLink Bot API authentication flow, CDN media pipeline (AES-128-ECB), and voice transcode approach
-
-Neither original plugin is included or modified. This project is an independent implementation combining their patterns into a single standalone WeChat channel.
+This plugin was built referencing the Claude Code channel protocol architecture and the WeChat ClawBot plugin (`openclaw-weixin`) for iLink Bot API authentication, CDN media pipeline (AES-128-ECB), and voice transcode. This project is an independent implementation.
 
 ---
 
@@ -103,12 +93,6 @@ claude --dangerously-load-development-channels server:wechat
 
 > **必须用 `--dangerously-load-development-channels`，不能用 `--channels`。**
 > 原因：`server:wechat` 不在 Claude Code 内置白名单上，`--channels` 会静默丢弃通知。
-
-同时开 Telegram（需先完成 [Telegram 插件配置](https://github.com/anthropics/claude-plugins-official/blob/main/external_plugins/telegram/README.md)）：
-
-```sh
-claude --channels plugin:telegram@claude-plugins-official --dangerously-load-development-channels server:wechat
-```
 
 ### 第三步：发消息
 
@@ -237,12 +221,6 @@ npm view @tencent-weixin/openclaw-weixin dist-tags time --json
 # 拉取源码对比：cd /tmp && npm pack @tencent-weixin/openclaw-weixin@latest
 ```
 
-**上游 2：Claude Code Telegram 插件（MCP channel 架构）**
-```
-~/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/telegram/
-# GitHub: https://github.com/anthropics/claude-plugins-official/tree/main/external_plugins/telegram
-```
-
 ---
 
 ## English
@@ -306,12 +284,6 @@ claude --dangerously-load-development-channels server:wechat
 
 > **Must use `--dangerously-load-development-channels`, not `--channels`.**
 > Reason: `server:wechat` is not on Claude Code's built-in allowlist. Using `--channels` silently drops all notifications.
-
-Run alongside Telegram (requires [Telegram plugin setup](https://github.com/anthropics/claude-plugins-official/blob/main/external_plugins/telegram/README.md) first):
-
-```sh
-claude --channels plugin:telegram@claude-plugins-official --dangerously-load-development-channels server:wechat
-```
 
 ### Step 3: Send a message
 
@@ -440,8 +412,3 @@ npm view @tencent-weixin/openclaw-weixin dist-tags time --json
 # Pull source to diff: cd /tmp && npm pack @tencent-weixin/openclaw-weixin@latest
 ```
 
-**Upstream 2: Claude Code Telegram plugin (MCP channel architecture)**
-```
-~/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/telegram/
-# GitHub: https://github.com/anthropics/claude-plugins-official/tree/main/external_plugins/telegram
-```
