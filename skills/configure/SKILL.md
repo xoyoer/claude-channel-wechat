@@ -9,8 +9,8 @@ allowed-tools:
 
 # /wechat:configure — WeChat Channel Status
 
-The WeChat channel reuses credentials from openclaw-weixin. There is no
-separate token to configure — just check the connection status.
+Check the connection status of the WeChat channel. Credentials live at
+`~/.claude/channels/wechat/account.json` (created by `setup.ts`).
 
 Arguments passed: `$ARGUMENTS`
 
@@ -18,8 +18,7 @@ Arguments passed: `$ARGUMENTS`
 
 ## No args — status
 
-1. **Account** — check `~/.openclaw/openclaw-weixin/accounts.json` for
-   registered account IDs. For each, read the account JSON file and show:
+1. **Account** — read `~/.claude/channels/wechat/account.json`:
    - Account ID (masked)
    - Base URL
    - User ID
@@ -35,7 +34,7 @@ Arguments passed: `$ARGUMENTS`
    whether a sync buf is saved.
 
 4. **What next** — based on state:
-   - No account → *"Login first: `openclaw channels login --channel openclaw-weixin`"*
+   - No account → *"Login first: `cd claude-channel-wechat && bun setup.ts`"*
    - Account exists, nobody allowed → *"DM your WeChat bot. It replies with
      a pairing code. Approve with `/wechat:access pair <code>`."*
    - Account + allowed users → *"Ready. Messages reach Claude Code."*
@@ -44,5 +43,5 @@ Arguments passed: `$ARGUMENTS`
 
 ## Implementation notes
 
-- This is read-only. Token management is done via openclaw CLI.
+- This is read-only. Token management is done via `setup.ts` (QR login).
 - Access policy changes go through `/wechat:access`.

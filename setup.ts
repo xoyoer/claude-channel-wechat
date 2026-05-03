@@ -5,8 +5,7 @@
  * Usage:
  *   bun setup.ts
  *
- * This creates independent credentials at ~/.claude/channels/wechat/account.json
- * (separate from openclaw-weixin).
+ * This creates credentials at ~/.claude/channels/wechat/account.json.
  */
 
 import { mkdirSync, writeFileSync, readFileSync } from 'fs'

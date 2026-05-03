@@ -3,10 +3,9 @@
  * WeChat channel for Claude Code.
  *
  * Self-contained MCP server that bridges WeChat messages to Claude Code
- * via the official iLink Bot API (Tencent). Reuses credentials from
- * openclaw-weixin plugin for authentication.
+ * via the official iLink Bot API (Tencent).
  *
- * State lives in ~/.claude/channels/wechat/ — separate from openclaw.
+ * State lives in ~/.claude/channels/wechat/.
  *
  * Protocol reference:
  *   POST https://ilinkai.weixin.qq.com/ilink/bot/getupdates
@@ -42,11 +41,6 @@ const ACCESS_FILE = join(STATE_DIR, 'access.json')
 const SYNC_FILE = join(STATE_DIR, 'sync.json')
 const INBOX_DIR = join(STATE_DIR, 'inbox')
 const APPROVED_DIR = join(STATE_DIR, 'approved')
-
-// openclaw-weixin credential location
-const OPENCLAW_STATE_DIR = process.env.OPENCLAW_STATE_DIR ?? join(homedir(), '.openclaw')
-const WECHAT_ACCOUNTS_DIR = join(OPENCLAW_STATE_DIR, 'openclaw-weixin', 'accounts')
-const WECHAT_ACCOUNTS_INDEX = join(OPENCLAW_STATE_DIR, 'openclaw-weixin', 'accounts.json')
 
 // Long-poll & retry
 const DEFAULT_LONG_POLL_TIMEOUT_MS = 35_000
@@ -204,13 +198,12 @@ interface UploadedFileInfo {
 }
 
 // =============================================================================
-// Account loading (independent credentials first, openclaw fallback)
+// Account loading (independent credentials only)
 // =============================================================================
 
 const OWN_ACCOUNT_FILE = join(STATE_DIR, 'account.json')
 
 function loadAccountCredentials(): WeixinAccountData & { accountId: string } {
-  // Priority 1: Own credentials (from setup.ts)
   try {
     const raw = readFileSync(OWN_ACCOUNT_FILE, 'utf8')
     const data = JSON.parse(raw) as WeixinAccountData & { botId?: string }
@@ -218,24 +211,6 @@ function loadAccountCredentials(): WeixinAccountData & { accountId: string } {
       return { ...data, accountId: data.botId ?? 'wechat-bot' }
     }
   } catch {}
-
-  // Priority 2: openclaw-weixin credentials (legacy fallback)
-  let accountIds: string[] = []
-  try {
-    const raw = readFileSync(WECHAT_ACCOUNTS_INDEX, 'utf8')
-    const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed)) accountIds = parsed.filter((s: unknown) => typeof s === 'string')
-  } catch {}
-
-  if (accountIds.length > 0) {
-    const accountId = accountIds[0]
-    const filePath = join(WECHAT_ACCOUNTS_DIR, `${accountId}.json`)
-    try {
-      const raw = readFileSync(filePath, 'utf8')
-      const data = JSON.parse(raw) as WeixinAccountData
-      if (data.token) return { ...data, accountId }
-    } catch {}
-  }
 
   throw new Error(
     'wechat channel: no WeChat account found.\n' +
@@ -493,6 +468,31 @@ async function apiSendTyping(userId: string, typingTicket: string, status: numbe
     10_000,
     'sendTyping',
   ).catch(() => {}) // fire-and-forget
+}
+
+// notifyStart / notifyStop: 上游 openclaw-weixin v2.1.10 引入的生命周期通知。
+// 启动时告诉服务端 channel 上线，关闭时告诉服务端 channel 下线 —— 服务端可以用此做更准确的 session 管理，减少 -14 / 残留 long-poll。
+async function apiNotifyStart(): Promise<void> {
+  await apiFetch(
+    'ilink/bot/msg/notifystart',
+    JSON.stringify({ base_info: { channel_version: CHANNEL_VERSION } }),
+    10_000,
+    'notifyStart',
+  ).catch(err => {
+    process.stderr.write(`wechat channel: notifyStart failed (ignored): ${err}\n`)
+  })
+}
+
+async function apiNotifyStop(): Promise<void> {
+  // 独立 timeout 5s（不绑 long-poll abort signal）—— 即使 long-poll 已 abort，notifyStop 仍有机会送达
+  await apiFetch(
+    'ilink/bot/msg/notifystop',
+    JSON.stringify({ base_info: { channel_version: CHANNEL_VERSION } }),
+    5_000,
+    'notifyStop',
+  ).catch(err => {
+    process.stderr.write(`wechat channel: notifyStop failed (ignored): ${err}\n`)
+  })
 }
 
 async function apiGetConfig(userId: string, contextToken?: string): Promise<{ typing_ticket?: string }> {
@@ -1853,6 +1853,8 @@ function shutdown(): void {
   if (shuttingDown) return
   shuttingDown = true
   process.stderr.write('wechat channel: shutting down\n')
+  // 通知服务端 channel 下线（v2.1.10）；fire-and-forget，setTimeout 2s 兜底退出
+  apiNotifyStop()
   setTimeout(() => process.exit(0), 2000)
 }
 
@@ -1865,6 +1867,9 @@ void (async () => {
   let getUpdatesBuf = loadSyncBuf()
   let nextTimeoutMs = DEFAULT_LONG_POLL_TIMEOUT_MS
   let consecutiveFailures = 0
+
+  // 通知服务端 channel 上线（v2.1.10），fire-and-forget 不阻塞 long-poll 启动
+  apiNotifyStart()
 
   if (getUpdatesBuf) {
     process.stderr.write(`wechat channel: resuming from saved sync buf (${getUpdatesBuf.length} bytes)\n`)
