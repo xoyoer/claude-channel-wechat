@@ -18,25 +18,40 @@ const ACCOUNT_FILE = join(STATE_DIR, 'account.json')
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
 
+// 读现有 account.json 的 token，给 get_bot_qrcode 带上 local_token_list（v2.3.1 引入）。
+// 服务端用它判断"已绑定过"，避免重复绑定流程。
+function getLocalBotTokenList(): string[] {
+  try {
+    const data = JSON.parse(readFileSync(ACCOUNT_FILE, 'utf8')) as { token?: string }
+    return data.token?.trim() ? [data.token.trim()] : []
+  } catch { return [] }
+}
+
 async function fetchQRCode(): Promise<{ qrcode: string; qrcodeUrl: string }> {
   const url = `${BASE_URL}/ilink/bot/get_bot_qrcode?bot_type=3`
-  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ local_token_list: getLocalBotTokenList() }),
+    signal: AbortSignal.timeout(15_000),
+  })
   if (!res.ok) throw new Error(`get_bot_qrcode failed: ${res.status}`)
   const data = await res.json() as { qrcode?: string; qrcode_img_content?: string }
   if (!data.qrcode) throw new Error('no qrcode in response')
   return { qrcode: data.qrcode, qrcodeUrl: data.qrcode_img_content ?? '' }
 }
 
-async function pollQRStatus(qrcode: string): Promise<{
+async function pollQRStatus(qrcode: string, verifyCode?: string): Promise<{
   status: string
   bot_token?: string
   ilink_bot_id?: string
   ilink_user_id?: string
   baseurl?: string
 }> {
-  const url = `${BASE_URL}/ilink/bot/get_qrcode_status?qrcode=${encodeURIComponent(qrcode)}`
+  let endpoint = `${BASE_URL}/ilink/bot/get_qrcode_status?qrcode=${encodeURIComponent(qrcode)}`
+  if (verifyCode) endpoint += `&verify_code=${encodeURIComponent(verifyCode)}`
   try {
-    const res = await fetch(url, {
+    const res = await fetch(endpoint, {
       headers: { 'iLink-App-ClientVersion': '1' },
       signal: AbortSignal.timeout(35_000),
     })
@@ -45,6 +60,25 @@ async function pollQRStatus(qrcode: string): Promise<{
   } catch {
     return { status: 'wait' }
   }
+}
+
+// 从 stdin 读一行配对码（手机微信扫码后会显示数字，输入回车提交）
+async function readVerifyCodeFromStdin(prompt: string): Promise<string> {
+  process.stdout.write(prompt)
+  return new Promise(resolve => {
+    let input = ''
+    const onData = (chunk: Buffer | string) => {
+      input += chunk.toString()
+      if (input.includes('\n')) {
+        process.stdin.removeListener('data', onData)
+        process.stdin.pause()
+        resolve(input.trim())
+      }
+    }
+    process.stdin.resume()
+    process.stdin.setEncoding('utf-8')
+    process.stdin.on('data', onData)
+  })
 }
 
 function normalizeAccountId(raw: string): string {
@@ -96,33 +130,63 @@ async function main() {
   const startTime = Date.now()
   const OVERALL_TIMEOUT = 480_000 // 8 minutes
   let lastStatus = ''
+  let pendingVerifyCode: string | undefined
+
+  // 刷新二维码：expired 和 verify_code_blocked 共用。返回 false 表示放弃。
+  async function tryRefresh(reasonText: string): Promise<boolean> {
+    if (refreshCount >= MAX_REFRESH) {
+      console.error(`✗ ${reasonText}，已达最大刷新次数，请重新运行 setup`)
+      return false
+    }
+    refreshCount++
+    console.log(`${reasonText}，正在刷新二维码 (${refreshCount}/${MAX_REFRESH})...`)
+    const refreshed = await fetchQRCode()
+    qrcode = refreshed.qrcode
+    qrcodeUrl = refreshed.qrcodeUrl
+    pendingVerifyCode = undefined
+    console.log()
+    if (qrcodeUrl) console.log(`  新二维码: ${qrcodeUrl}`)
+    console.log()
+    lastStatus = ''
+    return true
+  }
 
   while (Date.now() - startTime < OVERALL_TIMEOUT) {
-    const result = await pollQRStatus(qrcode)
+    const result = await pollQRStatus(qrcode, pendingVerifyCode)
+
+    // need_verifycode 是交互式状态，每次进入都要重新提示（错码会再次返回此状态）
+    if (result.status === 'need_verifycode') {
+      const prompt = pendingVerifyCode
+        ? '✗ 配对码错误，请重新输入: '
+        : '请输入手机微信显示的配对码: '
+      pendingVerifyCode = await readVerifyCodeFromStdin(prompt)
+      lastStatus = result.status
+      continue // 立即下一轮，不等 1s
+    }
 
     if (result.status !== lastStatus) {
       lastStatus = result.status
       switch (result.status) {
         case 'scaned':
-          console.log('✓ 已扫码，请在手机上确认...')
+          // 配对码正确后服务端会返回 scaned，清除暂存
+          if (pendingVerifyCode) {
+            console.log('✓ 配对码验证通过，请在手机上确认...')
+            pendingVerifyCode = undefined
+          } else {
+            console.log('✓ 已扫码，请在手机上确认...')
+          }
           break
         case 'expired':
-          if (refreshCount >= MAX_REFRESH) {
-            console.error('✗ 二维码已过期且达到最大刷新次数，请重新运行 setup')
-            process.exit(1)
-          }
-          refreshCount++
-          console.log(`二维码已过期，正在刷新 (${refreshCount}/${MAX_REFRESH})...`)
-          const refreshed = await fetchQRCode()
-          qrcode = refreshed.qrcode
-          qrcodeUrl = refreshed.qrcodeUrl
-          console.log()
-          if (qrcodeUrl) {
-            console.log(`  新二维码: ${qrcodeUrl}`)
-          }
-          console.log()
-          lastStatus = ''
+          if (!(await tryRefresh('二维码已过期'))) process.exit(1)
           break
+        case 'verify_code_blocked':
+          if (!(await tryRefresh('多次输入错误'))) process.exit(1)
+          break
+        case 'binded_redirect':
+          console.log()
+          console.log('✓ 此账号已绑定过，无需重复连接')
+          console.log('  现有凭证仍可使用。如需重新登录，请删除 account.json 后重试')
+          process.exit(0)
         case 'confirmed':
           // Success!
           if (!result.ilink_bot_id || !result.bot_token) {
