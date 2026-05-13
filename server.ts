@@ -385,12 +385,11 @@ function randomWechatUin(): string {
   return Buffer.from(String(uint32), 'utf-8').toString('base64')
 }
 
-function buildHeaders(body: string): Record<string, string> {
+function buildHeaders(): Record<string, string> {
   return {
     'Content-Type': 'application/json',
     'AuthorizationType': 'ilink_bot_token',
     'Authorization': `Bearer ${TOKEN}`,
-    'Content-Length': String(Buffer.byteLength(body, 'utf-8')),
     'X-WECHAT-UIN': randomWechatUin(),
   }
 }
@@ -402,7 +401,7 @@ async function apiFetch(endpoint: string, body: string, timeoutMs: number, label
   try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: buildHeaders(body),
+      headers: buildHeaders(),
       body,
       signal: controller.signal,
     })
